@@ -4,133 +4,143 @@
  */
 package br.lucas.tasksapp.main;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.sql.PreparedStatement;
 import java.util.Scanner;
-import java.sql.ResultSet;
-
+import java.sql.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import model.Tarefa;
 /**
  *
  * @author llsfj
  */
 public class Programa {
 
-   public static void main(String[] args) throws SQLException {
+   public static void main(String[] args) throws SQLException{
 
-		/*########################## Conexão ##########################*/
+       int opcao;
+       Scanner leitorTerminal = new Scanner(System.in);
+       
+       do {           
+           System.out.println(""" 
+                              1 - Cadastrar tarefa
+                              2 - Editar tarefa
+                              3 - Excluir tarefa
+                              4 - Listar tarefas
+                              0 - Finalizar programa
+                              Digite o número correspondente da opção desejada :
+                              """);
+           
+           opcao = leitorTerminal.nextInt();
+           leitorTerminal.nextLine();
+           
+           switch (opcao) {
+               case 0:
+                   break;
+               case 1:
+                   cadastrarTarefa(leitorTerminal);
+                   break;
+               case 2:
+                   editarTarefa(leitorTerminal);
+                   break;
+               case 3:
+                   excluirTarefa(leitorTerminal);
+                   break;
+               case 4:
+                   listarTarefas();
+               default:
+                   System.out.print("Digite uma opção válida: ");
+           }
+       } while (opcao != 0);	
+   }
+   
+   public static void cadastrarTarefa(Scanner leitor) throws SQLException {
+       // Coleta as informações a serem cadastradas
+       
+       System.out.println("==== CADASTRAR TAREFA ====");
+       System.out.print("Informe a tarefa: ");
+       String descricao = leitor.nextLine();
+       System.out.print("Informe a prioridade da tarefa: ");
+       int prioridade = leitor.nextInt();
+       leitor.nextLine();
+       
+       // Começa a conexão com o banco de dados
+       
+       String dbURL = "jdbc:mysql://localhost:3306/tasksdb";
+       String username = "root";
+       String password = "";
+       
+       Connection conn = DriverManager.getConnection(dbURL, username, password);
+       
+       Tarefa tarefa;
+       try {
+           // "Tenta" criar uma nova tarefa, com informalções passando por nossos tratamentos definidos.
+           tarefa = new Tarefa(descricao, prioridade);
+           
+            if(conn != null) {
+                // Se a conexão for bem sucedida e o objeto tarefa for criado, insere no banco de dados.
+           String sql = "insert into tarefas (tarefa, prioridade) values (?,?)";
+           PreparedStatement preparedStatement = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+           
+           preparedStatement.setString(1, tarefa.getDescricao());
+           preparedStatement.setInt(2, tarefa.getPrioridade());
+           
+           preparedStatement.executeUpdate();
+           
+           ResultSet resultados = preparedStatement.getGeneratedKeys();
+           int id = 0;
+           
+           // Recebe o id auto_increment do banco de dados e cadastra ele no nosso objeto tarefa, o que nos é disponibilizado fazer
+           // ao criarmos os diferentes tipos de construtor, um deles permitindo a criação parcial dos atributos e inserindo mais
+           // no decorrer do cadastro
+           
+           if(resultados.next()) {
+               tarefa.setId(resultados.getInt(1));
+           }
+           
+           resultados.close();
+           preparedStatement.close();
+           conn.close();
+           
+           System.out.println("Tarefa cadastrada com o id : " + tarefa.getId());
+           
+       } else {
+           System.out.println("Não conectado");
+       }
+       } catch (Exception ex) {
+           Logger.getLogger(Programa.class.getName()).log(Level.SEVERE, null, ex);
+       }
+       
+   }
+   public static void editarTarefa(Scanner leitor) throws SQLException {
+      
+   }
+   
+   public static void excluirTarefa(Scanner leitor) throws SQLException {
+       
+   }
 
-		//String de conexão. (Se o SGBD estiver em outro computador, substitua "localhost" pelo IP deste outro computador) 
-		String dbURL = "jdbc:mysql://localhost:3306/tasksdb";
-
-		//Nome de usuário utilizado no MySQL (Por padrão é "root" mesmo)
-		String username = "root";
-
-		//Senha configurada no MySQL (Por padrão é vazio "", para este exemplo configurei a senha "senha" no meu MySQL)
-		String password = "";
-
-		/* Caso você tenha adicionado o connector MySQL/Java ao classpath do projeto 
-		 * e configurado corretamente a string de conexão, o usuário e a senha, 
-		 * a conexão será estabelecida e armazenada em "conn" */
-		Connection conn = DriverManager.getConnection(dbURL, username, password);
-
-		//Verifica se a conexão foi estabelecida
-		if(conn != null) {
-			System.out.println("Conectado!");
-		}else {
-			System.out.println("Não conectado!");
-		}
-
-		/*########################## Insert ##########################*/
-
-		//Lê os dados do terminal
-		Scanner scanner = new Scanner(System.in);
-
-		System.out.println("Digite a descrição da tarefa:");
-		String tarefa = scanner.nextLine();
-
-		System.out.println("Digite a prioridade da tarefa:");
-		int prioridade = scanner.nextInt();
-
-		//Define a instrução SQL modelo para as inserções de tarefas
-		String sqlInsert = "insert into tarefas (tarefa, prioridade) values (?,?)";
-		//Utilizando a instrução SQL definida acima e o conexão estabelecida, cria uma instrução pré-compilada (PreparedStatement).
-		PreparedStatement prepStatementInsert = conn.prepareStatement(sqlInsert);
-
-		//Seta os valores na instrução SQL pré-compilada
-		prepStatementInsert.setString(1, tarefa);
-		prepStatementInsert.setInt(2, prioridade);
-
-		//Executa a inserção no banco e exibe o retorno obtido (executeUpdate retorna um inteiro que indica o número de registros afetados).
-		int linhasAfetadasInsert = prepStatementInsert.executeUpdate();
-		System.out.println("Retorno do executeUpdate: "+linhasAfetadasInsert);
-		prepStatementInsert.close();
-
-
-		/*########################## Update ##########################*/
-
-		//Define uma instrução SQL modelo para updates de tarefas
-		String sqlUpdate = "update tarefas set prioridade=? where tarefa like ?";
-		PreparedStatement prepStatementUpdate = conn.prepareStatement(sqlUpdate);
-
-		/* Observe que com a instrução modelo utilizada neste update e com os valores setados abaixo
-		 * todas as tarefas cadastradas na base que possuirem o texto "Estudar" em sua descrição
-		 * terão suas prioridade alteradas para 5. */
-		prepStatementUpdate.setInt(1, 5);
-		prepStatementUpdate.setString(2, "%Estudar%");
-
-		int linhasAfetadasUpdate = prepStatementUpdate.executeUpdate();
-
-		System.out.println("Retorno do executeUpdate: "+linhasAfetadasUpdate);
-		prepStatementUpdate.close();
-
-
-		/*########################## Delete ##########################*/
-
-		//Define uma instrução SQL modelo para deletes de tarefas
-		String sqlDelete = "delete from tarefas where id = ?";
-
-		PreparedStatement prepStatementDelete = conn.prepareStatement(sqlDelete);
-
-		/* Observe que com a instrução modelo utilizada neste delete e
-		 * com o valor setado abaixo, a tarefa cadastrada na base com
-		 * o id 2 será excluída */
-		prepStatementDelete.setInt(1, 2);
-
-		int linhasAfetadasDelete = prepStatementDelete.executeUpdate();
-
-		System.out.println("Retorno do executeUpdate: "+linhasAfetadasDelete);
-		prepStatementDelete.close();
-
-                
-		/*########################## Select ##########################*/
-
-		/* Define uma instrução SQL modelo para buscar todas as tarefas do banco.
-		 * Quando quiser buscar uma tarefa específica, basta utilizar algo como 
-		 * "select * from tarefas where id = ? "
-		 */
-		String sqlSelect = "select * from tarefas";
-		PreparedStatement prepStatementSelect = conn.prepareStatement(sqlSelect);
-
-		/* O executeQuery executará o select acima e retornará o conjunto de 
-		 * dados selecionados do banco de dados, este conjunto de dados será
-		 * armazenado em um ResultSet
-		 */
-		ResultSet result = prepStatementSelect.executeQuery();
-
-
-		/* Este é o meio pelo qual extraímos os dados do ResultSet
-		 */
-		while(result.next()) {
-			System.out.println(result.getString("tarefa"));
-			System.out.println(result.getInt("prioridade"));
-		}
-		result.close();
-		prepStatementSelect.close();
-
-		//Encerra a conexão com o banco de dados
-		conn.close();
-	}
-
+   public static void listarTarefas() throws SQLException {
+       
+       String dbURL = "jdbc:mysql://localhost:3306/tasksdb";
+       String username = "root";
+       String password = "";
+       
+       Connection conn = DriverManager.getConnection(dbURL, username, password);
+       
+       if(conn != null) {
+           String sql = "SELECT * FROM tarefas";
+           PreparedStatement preparedStatement = conn.prepareStatement(sql);
+           
+           ResultSet result = preparedStatement.executeQuery();
+           
+           while(result.next()) {
+               System.out.println(result.getString(2));
+               System.out.println(result.getInt(3));
+           }
+           
+           result.close();
+           preparedStatement.close();
+           conn.close();
+       }
+   }
 } 
